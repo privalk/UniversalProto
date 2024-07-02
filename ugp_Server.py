@@ -15,7 +15,9 @@ class UnityGrpcService(UnityGeneral_pb2_grpc.UnityGrpcServiceServicer):
         self.routes = {}
         self.add_func_route("ImgTest", self.handle_image_test, "bytes|none", "bytes|none")
         self.add_func_route("StrTest", self.handle_string_test, "var|float", "list|string")
-        
+        # self.add_func_route("PortraitStylization",self.hanlde_PortraitStylization,"bytes","bytes")
+        # self.add_func_route("FaceRecognition",self.hanlde_FaceRecognition,"bytes","bytes")
+    
 
     def add_func_route(self, func_name: str, endpoint, request_type: str, response_type: str):
         self.routes[func_name] = {
@@ -132,7 +134,18 @@ class UnityGrpcService(UnityGeneral_pb2_grpc.UnityGrpcServiceServicer):
         info = f"Get num from reqs as {num}."
         str_list = [str(data) for _ in range(3)]  # 示例: 根据float生成3个相同的字符串
         return True, info, str_list
+    
+    # def hanlde_PortraitStylization(self, reqs: dict, data: bytes):
+    #     # 风格化服务
 
+
+    #     return True, "PortraitStylization", rdata
+    
+    # def hanlde_FaceRecognition(self, reqs: dict, data: bytes):
+    #     # 人脸识别服务
+        
+        
+    #     return True, "FaceRecognition", rdata
 
 def serve():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))

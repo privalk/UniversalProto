@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package facerecognition;
+
+// 定义人脸信息
+message Face {
+  enum Gender {
+    FEMALE = 0;
+    MALE = 1;
+  }
+
+  Gender gender = 1; // 性别
+  int32 age = 2;      // 年龄
+  repeated int32 box = 3; // 识别框，包括四个坐标点
+}
+
+// 定义客户端请求的消息格式
+message FaceDetectRequest {
+  string image_base64 = 1; // 客户端发送的base64编码的图片
+}
+
+// 定义服务器响应的消息格式
+message FaceDetectResponse {
+  repeated Face subjects = 1; // 识别出的每一张脸的列表
+}
+
+// 定义服务
+service FaceDetectService {
+  // 定义一个RPC调用，客户端发送请求，服务器返回响应
+  rpc DetectFaces(FaceDetectRequest) returns (FaceDetectResponse);
+}

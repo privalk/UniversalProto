@@ -1,0 +1,282 @@
+
+这里现在有一点小问题。
+我的API处理这些图片的速度比Unity的帧率慢。所以我不想给API堆积太多请求。
+因此，我希望它有一个机制，在堆积太多请求后，自动抛弃一部分请求。
+
+首先，我希望有一个private int用于计数，每次进入SendFaceRecognitionRequest时+1，每次lastResponse = responseQueue.Dequeue();时-1.这样它的值就是堆积的未处理完毕的帧的数量。
+
+然后，我需要2个public int，分别用于控制随机抛弃请求和抛弃所有请求的堆积量阈值。
+会有一个函数bool CanRequestSend()用于判断是否要抛弃当前请求。
+它会使用一个时间相关的随机数，结合堆积量和两个public参数，计算得出一个bool值并返回。
+
+SendFaceRecognitionRequest中，会首先调用CanRequestSend()进行判断，如果判断为false则不执行后续步骤。
+
+
+
+
+
+
+我有一个叫GlobalDataManager的类，用于管理全局的数据。
+而这里这个Controller则是它的使用示例，是我以前为了别的目的写的，所以所有的方法都被封装成了协程类型，并且它们都有完全相同的调用格式。
+我现在，希望你参考其中调用GlobalDataManager的方式，但使用同步的方法，从Unit中继承，把这些写成一个Unity Visual Script的自定义节点。
+这个自定义节点叫GlobalDataControl，除了enter和exit之外，它还有2个input：
+input enum func 是一个枚举，在uvs界面上只能点击进行选择，它代表了要被调用的方法，其中包含AddData、GetData等。
+input string config是一个string，它与示例中的对config的处理方法完全一致。
+请帮我编写这个Unity Visual Script的自定义节点，注意代码的格式、清晰且容易维护。
+
+
+
+
+
+
+
+好，现在我希望给该自定义节点添加一项功能：
+我希望对它增加一项input string uvsVar，该input为string，该项默认为空字符串，当该项为空时，遵循原本的逻辑，当该项不为空时，会尝试将它解析为一个unity visual script里的对象，具体参考下文中的代码：
+
+        private Dictionary<string, object> StringToDictionary(string descriptions)
+        {
+            var pairs = descriptions.Split('|');
+            var queryDictionary = new Dictionary<string, object>();
+
+            foreach (var pair in pairs)
+            {
+                var parts = pair.Split('=');
+                if (parts.Length != 2){
+                    Debug.LogWarning("Failed On Converting String Part: " + pair);
+                    continue;
+                }
+
+                var key = parts[0];
+                var valueDesc = parts[1];
+
+                if (!valueDesc.StartsWith("@")){
+                    queryDictionary.Add(key, valueDesc);
+                    continue;
+                }
+
+                var valueParts = valueDesc.Substring(1).Split('-');
+                if (valueParts.Length != 2){
+                    Debug.LogWarning("Failed To Find Variable Type in Part: " + pair);
+                    continue;
+                }
+
+                var scope = valueParts[0];
+                var varName = valueParts[1];
+                var value = GetVariableValue(scope, varName);
+                if (value != null)
+                {
+                    queryDictionary.Add(key, value);
+                }
+            }
+
+            return queryDictionary;
+        }
+
+        private object GetVariableValue(string scope, string varName)
+        {
+            // The actual implementation should handle the specific way your system stores and retrieves variables.
+            switch (scope)
+            {
+                case "scene":
+                    return Variables.ActiveScene.Get(varName);
+                case "app":
+                    return Variables.Application.Get(varName);
+                case "saved":
+                    return Variables.Saved.Get(varName);
+                default:
+                    return null;
+            }
+        }
+
+此项仅当Function选项不为ClearAllData和SaveAllData时有效。
+关于如何将该项置入原本的逻辑中，对于AddData和ModifyData，它应该使用该项所指向的值替代原本valueStr = parts[2]所代表的值；对于GetData和RemoveData，它会将得到的值保存在该项所指向的位置中。
+我希望你参考我给出的代码，编写一个解析函数。
+并且编写并使用GetVariableValue和SetVariableValue这两个辅助函数。
+
+
+
+
+
+
+
+请给我一个新的Unity.VisualScripting自定义节点，它属于Custom/Utility，命名空间Unity.VisualScripting.CustomNodes，叫做TypeExchanger，用于将一种类型的数据转换为另一种数据，我们以后会不断往里添加新类型，但是现在我们先只处理2种，Texture2D到Base64的string，或者base64到Testure2D。
+除了enter exit以外，还有两个input，第一个是个enum，代表了转换的类型和结果；第二个则是要处理的object。
+
+请使用以下转换函数：
+byte[] imageBytes = Convert.FromBase64String(base64.Value);
+			Texture2D texture = new(2, 2);
+
+			if (texture.LoadImage(imageBytes))
+			{
+				storeTexture.Value = texture;
+			}
+
+
+以及
+private string DoConvertTextureToBase64(Texture2D texture2d)
+		{
+			byte[] imageBytes = texture2d.EncodeToJPG();
+			string base64 = Convert.ToBase64String(imageBytes);
+			return base64;
+		}
+
+
+
+我现在希望，当valueDesc.StartsWith("&")时，采用另一种value获取方式，也就是现在存在3种不同的value获取：
+1 当没有任何特殊前缀时，使用valueDesc
+2 当以@为前缀时，采用现在这些GetVariableValue的逻辑，将包括GetVariableValue在内封装为GetUvsVariableValue(valueDesc)的形式，当出错时返回Null值。
+3 当以&为前缀时，使用新的逻辑，调用GetGlobleDataValueList(valueDesc)的形式，一会儿我们再来具体考虑它的逻辑。
+
+现在我们来处理GetGlobalDataValueList，我希望它返回一个list，list的具体内容请通过以下逻辑读取：
+已知，我们有GlobalDataManager.Instance.GetData(path);
+public object GetData(string dataPath) {}这是已经实现好的内容，用这个能从全局数据中取到数据。
+然后，我们要把valueDesc进行语法解析，将它用"-"分成3个部分：
+path（根路径）-num（list里的总项数）- （各种变量）var1,var2,.....
+然后，我们就可以通过循环，将path设为
+path.( 0 ~ num-1 的整数).var1 等，获取到各个项的键值了
+
+
+
+
+
+
+    "79": {
+      "inputs": {
+        "person0_x0": 250,
+        "person0_y0": 200,
+        "person0_x1": 600,
+        "person0_y1": 700,
+        "person0_sex": "female",
+        "person0_age": 0,
+        "person1_x0": 1200,
+        "person1_y0": 250,
+        "person1_x1": 1600,
+        "person1_y1": 700,
+        "person1_sex": "male",
+        "person1_age": 0,
+        "person2_x0": 800,
+        "person2_y0": 350,
+        "person2_x1": 1100,
+        "person2_y1": 800,
+        "person2_sex": "female",
+        "person2_age": 0,
+        "person3_x0": 0,
+        "person3_y0": 0,
+        "person3_x1": 100,
+        "person3_y1": 100,
+        "person3_sex": "male",
+        "person3_age": 0,
+        "person4_x0": 0,
+        "person4_y0": 0,
+        "person4_x1": 100,
+        "person4_y1": 100,
+        "person4_sex": "male",
+        "person4_age": 0,
+        "image": [
+          "13",
+          0
+        ]
+      },
+      "class_type": "MultiPeopleTest",
+      "_meta": {
+        "title": "MultiPeopleTest"
+      }
+    }
+
+以上的input部分需要被代码修改。
+数据来源于：
+class FaceRecogItem(BaseModel):
+    gender: int
+    age: int
+    xmin: int
+    ymin: int
+    xmax: int
+    ymax: int
+
+class ImageRequestNew(BaseModel):
+    img_base64: str
+    face_recog: List[FaceRecogItem]
+其中face_recoglist的长度在0~10之间，大于5的内容抛弃，如果长度小于5，则把长度以外部分的age改为0.
+
+并且已知，可以用
+self.modify_workflow_node(workflow_key, 'MultiPeopleTest', 'MultiPeopleTest', 'person0_x0', the int value )
+这样的方法对项进行修改。
+请给我修改所要用的for 循环代码：
+for i,recogItem in image_request.face_recog:
+
+
+
+
+
+
+
+
+
+
+
+
+
+请帮我写一个C#类，用于管理Toggle的选中状态。它是个Instance，用这样的方式来初始化自身：
+    private static GlobalDataManager _instance;
+    public static GlobalDataManager Instance {
+        get {
+            if (_instance == null) {
+                _instance = new GlobalDataManager();
+            }
+            return _instance;
+        }
+    }
+它会维护一个Dictionary，String ToggleName -> { toggleObject， bool isAll， bool isSelected }
+它会每帧检查Dictionary里面的toggle状态并更新该Dictionary的值。具体这里还有更多的逻辑，但请先使用注释进行备注。
+然后，它提供
+
+它会首先检查isAll为true的那些toggle的状态，如果其中任意任意勾选框状态发生变化：
+
+以上这段没用
+
+
+
+
+
+请参考以上Find Button的Visual Script节点，帮我写一个自定义节点，
+用于在某个object的子节点下找到toggle并且给它们的On Value Changed (Boolean)绑上设定的事件。
+
+
+
+
+
+
+请帮我写一个Visual Script自定义节点，叫FileSaveController。
+它的作用是把Unity里的资产（object）保存到本地。
+namespace Unity.VisualScripting.CustomNodes
+{
+    [UnitCategory("Custom/Utility")]
+    [UnitTitle("Save File To Local")]
+    public class FileSaveController : WaitUnit
+
+它除了enter和exit之外，还需要以下输入和输出：
+输入
+saveType:使用一个enum变量，目前包含Texture2D_to_PNG、Texture2D_to_JPG两种，以后可能还会添加。
+object: 要被保存的资产，格式是object，可能是各种各样的东西。
+saveDir: 要被保存的绝对路径，默认D:/Downloads
+fileName: 默认为空，为空时用新生成的uuid作为文件名，不为空时使用改名字加上适合的后缀作为文件名。
+输出
+Path:保存到的具体路径，比如D:/Downloads/some uuid.png
+
+
+
+你的实现有问题，首先保存文件这件事在unity里是异步的，而且我们继承自WaitUnit，你应该使用
+protected override void Definition()
+        {
+            base.Definition();
+
+。。。
+}
+
+protected override IEnumerator Await(Flow flow){ 。。。 
+flow.Invoke(exit);
+yield break; 
+}
+然后，你应该声明一个private string savedPath用于表示保存的实际地址，并使用
+outputPath = ValueOutput<string>("Path", flow => savedPath)让逻辑清晰。
+最后，在主流程Await里，应该调用一个switch (saveType)来进行分支，该分支调取各种不同的保存逻辑，让逻辑更加清晰。
