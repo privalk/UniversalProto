@@ -1,0 +1,52 @@
+
+
+我希望像在fastAPI中配置路由一样去配置我的rpc服务的func。
+具体来说，我希望在class UnityGrpcService中有一个init函数，这个init函数中会将每个func对应的处理过程进行注册（比如说放在一个dictionary里面）
+然后，在每次调用时，首先检查func是否属于dict.keys，如果不属于，则返回报错信息，如果属于，则调用对应的func来进行处理。
+这样子，我就能在形式上用一个类似路由表的格式来管理我的服务中的func了
+
+
+我要把这个字典写得更详细一点，具体来说，我希望在里面定义好这个func的返回值格式。
+具体来说，像这样，首先定义一个注册函数：
+def add_func_route(self, funcName: str, endpoint, RequestType: str, ResponseType: str):
+其中，RequestType和ResponseType形似 bytes|none 或者 list|int 或者 var|string 这种，能够说明这次请求的数据格式。
+
+我需要你做如下实现：
+1 实现一个辅助函数，从形如“var1=xxx|var2=yyy|...”的request.info中提取出str -> str的请求字典。
+2 实现2个辅助函数，分别用于请求信息的解包和打包，并在解包和打包过程中注意格式是否符合定义：
+我希望解包和打包函数尽量摈弃复杂性，为此，我规定UData中的3个变量最多只能有1个存在，如果为list，那么list中的所有变量类型也必须一致。
+分别为
+def decode_udata(data: UnityGeneral_pb2.UData, type: str) -> any
+def encode_udata(data: any, type: str) -> UnityGeneral_pb2.UData
+其中type形似list|int或者bytes|none这种。
+
+举例而言，如果进行decode，并且type为list|int，那么就尝试检查data.var_list是否存在，并且其中所有项都必须为int_value，若成功则最后返回一个int[]
+再举一个例子，如果进行encode，并且type为bytes, 那么就首先检查输入的data是不是bytes类型，如果是，则返回udata.bytes_data = data.
+
+好，现在请借助parse_info、decode_udata、encode_udata的定义，修改各个路由函数的声明格式（比如def handle_image_test(self, reqs:dict, data:bytes))
+并且修改入口函数SendDatas
+
+我希望路由函数专注于具体的处理逻辑，encode应该放在SendData里。
+举例而言：
+
+    def handle_string_test(self, reqs: dict, data: float):
+        # 示例逻辑：从reqs中获取num，并基于float数据构造字符串列表响应
+        str_list = [str(data) for _ in range(3)]  # 示例: 根据float生成3个相同的字符串
+        return True, reqs['num'], str_list
+
+    def SendData(self, request, context):
+        func = request.func
+        route_info = self.routes.get(func)
+        if not route_info:
+            return UnityGeneral_pb2.Response(success=False, info=f"Function '{func}' not supported")
+        
+        # 解析info字符串为字典
+        reqs = self.parse_info(request.info)
+        # 解码UData
+        data = self.decode_udata(request.data, route_info["request_type"])
+        # 调用相应的处理函数
+        success, handle_info, result = route_info["endpoint"](reqs, data)
+        # 编码UData
+        response_data = self.encode_udata(result, route_info["response_type"])
+
+        return UnityGeneral_pb2.Response(success, handle_info, response_data)

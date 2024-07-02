@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package unitycomm;
+
+// 请求消息定义
+message Request {
+  // 必须项，标识信息，用于对齐通信调用格式
+  string func = 1;
+  // 可选的追加信息
+  string info = 2;
+  // 通用数据类型，其内容应该与func相对应
+  UData data = 3;
+}
+  
+  // 响应消息定义
+message Response {
+  // 成功与否的标识
+  bool success = 1;
+  // 追加信息（如果有），也用作错误信息
+  string info = 2;
+  // 响应包含的通用数据
+  UData data = 3;
+}
+  
+  // 服务定义
+service UnityGrpcService {
+  // 定义一个RPC调用，用于发送请求并接收响应
+  rpc RemoteCall (Request) returns (Response);
+}
+  
+
+// 通用的数据类型，用于处理各种声光电。
+message UData {
+  // 可选的二进制数据
+  optional bytes bytes_data = 1;
+  // 可选的多类型单一数据
+  optional MultiType var_single = 2;
+  // 可选的多类型数据列表
+  repeated MultiType var_list = 3;
+}
+
+// 支持多种基本数据类型的消息
+message MultiType {
+  oneof value {
+    int32 int_value = 1;
+    int64 long_value = 2;
+    float float_value = 3;
+    double double_value = 4;
+    string string_value = 5;
+  }
+}
+
+
