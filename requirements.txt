@@ -1,0 +1,7 @@
+grpcio==1.64.1
+numpy==2.0.0
+opencv_python==4.9.0.80
+Pillow==10.4.0
+protobuf==3.20.3
+python-dotenv==1.0.1
+Requests==2.32.3
