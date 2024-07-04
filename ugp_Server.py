@@ -28,7 +28,7 @@ class UnityGrpcService(UnityGeneral_pb2_grpc.UnityGrpcServiceServicer):
         self.add_func_route("ImgTest", self.handle_image_test, "bytes|none", "bytes|none")
         self.add_func_route("StrTest", self.handle_string_test, "var|float", "list|string")
         self.add_func_route("PortraitStylization",self.hanlde_PortraitStylization,"bytes|none","bytes|none")
-        self.add_func_route("FaceDetection",self.hanlde_FaceDetection,"none|none","none|none")
+        self.add_func_route("FaceDetection",self.hanlde_FaceDetection,"bytes|none","list|int")
     
 
     def add_func_route(self, func_name: str, endpoint, request_type: str, response_type: str):
@@ -194,10 +194,19 @@ class UnityGrpcService(UnityGeneral_pb2_grpc.UnityGrpcServiceServicer):
         CompreFace_API_KEY: str = os.getenv("COMPREFACE_API_KEY")
         compre_face: CompreFace = CompreFace(CompreFace_Url, CompreFace_Port,options={"face_plugins": "age,gender"})
         detection: DetectionService = compre_face.init_face_detection(CompreFace_API_KEY)
-        image_path: str = 'input.jpg'
-        print(detection.detect(image_path))
-
-        return True, "FaceDetection", NotImplementedError
+        CompreFaceData=detection.detect(data)
+        # 提取所需数据
+        extracted_data = [
+            CompreFaceData['result'][0]['age']['low'],  # 提取 age low
+            0 if CompreFaceData['result'][0]['gender']['value']=='male' else 1,  # 提取 gender value并转换为 0 或 1
+            CompreFaceData['result'][0]['box']['x_max'],  # 提取 box x_max
+            CompreFaceData['result'][0]['box']['y_max'],  # 提取 box y_max
+            CompreFaceData['result'][0]['box']['x_min'],  # 提取 box x_min
+            CompreFaceData['result'][0]['box']['y_min']   # 提取 box y_min
+        ]
+        
+        print(CompreFaceData)
+        return True, "FaceDetection", extracted_data
     
 
 
