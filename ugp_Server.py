@@ -6,8 +6,17 @@ import numpy as np
 import UnityGeneral_pb2
 import UnityGeneral_pb2_grpc
 
+from compreface import CompreFace
+from compreface.collections.face_collections import Subjects
+from compreface.service import DetectionService
+
 from PIL import Image, ImageOps
 import io
+from dotenv import load_dotenv
+import os
+
+# 加载环境变量
+load_dotenv()
 
 class UnityGrpcService(UnityGeneral_pb2_grpc.UnityGrpcServiceServicer):    
     #############################################################
@@ -19,7 +28,7 @@ class UnityGrpcService(UnityGeneral_pb2_grpc.UnityGrpcServiceServicer):
         self.add_func_route("ImgTest", self.handle_image_test, "bytes|none", "bytes|none")
         self.add_func_route("StrTest", self.handle_string_test, "var|float", "list|string")
         self.add_func_route("PortraitStylization",self.hanlde_PortraitStylization,"bytes|none","bytes|none")
-        # self.add_func_route("FaceRecognition",self.hanlde_FaceRecognition,"bytes","bytes")
+        self.add_func_route("FaceDetection",self.hanlde_FaceDetection,"none|none","none|none")
     
 
     def add_func_route(self, func_name: str, endpoint, request_type: str, response_type: str):
@@ -122,24 +131,26 @@ class UnityGrpcService(UnityGeneral_pb2_grpc.UnityGrpcServiceServicer):
     ####    具体的路由函数
     #############################################################
 
-    
+    # 示例逻辑：从bytes数据读取图像，进行反色处理，再保存为bytes
     def handle_image_test(self, reqs: dict, data: bytes):
-        # 示例逻辑：从bytes数据读取图像，进行反色处理，再保存为bytes
+    
         img = Image.open(io.BytesIO(data))
         inverted_image = ImageOps.invert(img)
         byte_arr = io.BytesIO()
         inverted_image.save(byte_arr, format='JPEG')
         return True, "Inverted image processed", byte_arr.getvalue()
-
+    
+     # 示例逻辑：从reqs中获取num，并基于float数据构造字符串列表响应
     def handle_string_test(self, reqs: dict, data: float):
-        # 示例逻辑：从reqs中获取num，并基于float数据构造字符串列表响应
+      
         num = int(reqs.get('num', -1))  # Default to -1 if num is not provided
         info = f"Get num from reqs as {num}."
         str_list = [str(data) for _ in range(3)]  # 示例: 根据float生成3个相同的字符串
         return True, info, str_list
     
+    # 风格化服务
     def hanlde_PortraitStylization(self, reqs: dict, data: bytes):
-        # 风格化服务
+    
         print("run PortraitStylization")
 
         start_time = time.time()
@@ -174,11 +185,22 @@ class UnityGrpcService(UnityGeneral_pb2_grpc.UnityGrpcServiceServicer):
 
         return True, "PortraitStylization", rdata
     
-    # def hanlde_FaceRecognition(self, reqs: dict, data: bytes):
-    #     # 人脸识别服务
-        
-        
-    #     return True, "FaceRecognition", rdata
+
+    # 人脸检测服务
+    def hanlde_FaceDetection(self, reqs: dict, data: bytes):
+        print("run FaceDetection")
+        CompreFace_Url: str=os.getenv("COMPREFACE_URL")
+        CompreFace_Port: str =os.getenv("COMPREFACE_PORT")
+        CompreFace_API_KEY: str = os.getenv("COMPREFACE_API_KEY")
+        compre_face: CompreFace = CompreFace(CompreFace_Url, CompreFace_Port,options={"face_plugins": "age,gender"})
+        detection: DetectionService = compre_face.init_face_detection(CompreFace_API_KEY)
+        image_path: str = 'input.jpg'
+        print(detection.detect(image_path))
+
+        return True, "FaceDetection", NotImplementedError
+    
+
+
 
 def serve():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))

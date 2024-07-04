@@ -81,7 +81,7 @@ class FaceDetectManager:
 
 if __name__ == '__main__':
     test_image_path = "test_image.jpg"
-    test_image_path = "test_family.png"
+    test_image_path = "./test_family.png"
     needed_info = ['box', 'gender', 'age']
     # needed_info = ['subject', 'similarity', 'box']
     # 最多支持如下参数
@@ -90,7 +90,7 @@ if __name__ == '__main__':
     # api_key = "d594011e-48ae-4bac-a7bc-d18f4039771b"
     # manager = FaceDetectManager(base_url, api_key, test_image_path)
     COMPRE_API_URL = "http://localhost:8000/api/v1/detection/detect"
-    COMPRE_API_KEY = "c90d756a-a79f-4f33-83a7-c9c59b47084d"
+    COMPRE_API_KEY = "8b646ae9-7aa9-4df5-9119-b52981464cf8"
     manager = FaceDetectManager(COMPRE_API_URL, COMPRE_API_KEY, test_image_path)
     test_image = cv2.imread(test_image_path)
     
