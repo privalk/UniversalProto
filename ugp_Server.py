@@ -23,6 +23,13 @@ class UnityGrpcService(UnityGeneral_pb2_grpc.UnityGrpcServiceServicer):
     ####    初始化、函数注册
     #############################################################
     def __init__(self):
+        # 环境变量获取配置信息
+        self.CompreFace_Url = os.getenv("COMPREFACE_URL")
+        self.CompreFace_Port = os.getenv("COMPREFACE_PORT")
+        self.CompreFace_API_KEY = os.getenv("COMPREFACE_API_KEY")
+        # 初始化 CompreFace 客户端
+        self.compre_face = CompreFace(self.CompreFace_Url, self.CompreFace_Port,options={"face_plugins": "age,gender"})
+        self.detection = self.compre_face.init_face_detection(self.CompreFace_API_KEY)
         # 初始化路由字典
         self.routes = {}
         self.add_func_route("ImgTest", self.handle_image_test, "bytes|none", "bytes|none")
@@ -189,24 +196,38 @@ class UnityGrpcService(UnityGeneral_pb2_grpc.UnityGrpcServiceServicer):
     # 人脸检测服务
     def hanlde_FaceDetection(self, reqs: dict, data: bytes):
         print("run FaceDetection")
-        CompreFace_Url: str=os.getenv("COMPREFACE_URL")
-        CompreFace_Port: str =os.getenv("COMPREFACE_PORT")
-        CompreFace_API_KEY: str = os.getenv("COMPREFACE_API_KEY")
-        compre_face: CompreFace = CompreFace(CompreFace_Url, CompreFace_Port,options={"face_plugins": "age,gender"})
-        detection: DetectionService = compre_face.init_face_detection(CompreFace_API_KEY)
-        CompreFaceData=detection.detect(data)
-        # 提取所需数据
-        extracted_data = [
-            CompreFaceData['result'][0]['age']['low'],  # 提取 age low
-            0 if CompreFaceData['result'][0]['gender']['value']=='male' else 1,  # 提取 gender value并转换为 0 或 1
-            CompreFaceData['result'][0]['box']['x_max'],  # 提取 box x_max
-            CompreFaceData['result'][0]['box']['y_max'],  # 提取 box y_max
-            CompreFaceData['result'][0]['box']['x_min'],  # 提取 box x_min
-            CompreFaceData['result'][0]['box']['y_min']   # 提取 box y_min
-        ]
-        
-        print(CompreFaceData)
-        return True, "FaceDetection", extracted_data
+       
+        try:
+            CompreFaceData=self.detection.detect(data)
+            # 提取所需数据
+            extracted_data = []  # 创建一个空列表来保存提取的数据
+
+            # 遍历 CompreFaceData['result'] 中的每个元素
+            for face in CompreFaceData['result']:
+                # 提取当前人脸的数据
+                age_low = face['age']['low']  # 提取 age low
+                gender_value = 0 if face['gender']['value'] == 'male' else 1  # 提取 gender value 并转换为 0 或 1
+                box_x_max = face['box']['x_max']  # 提取 box x_max
+                box_y_max = face['box']['y_max']  # 提取 box y_max
+                box_x_min = face['box']['x_min']  # 提取 box x_min
+                box_y_min = face['box']['y_min']  # 提取 box y_min
+                
+                # 将提取的数据直接添加到 extracted_data 列表中，而不是作为子列表
+                extracted_data.extend([
+                    age_low,
+                    gender_value,
+                    box_x_max,
+                    box_y_max,
+                    box_x_min,
+                    box_y_min
+                ])
+            
+            print(CompreFaceData)
+            print(extracted_data)
+            return True, "FaceDetection", extracted_data
+        except Exception as e:
+            print(f"未检测到人脸或人脸检测服务出错: {e}")
+            return False, "FaceDetection", str(e)
     
 
 
@@ -219,5 +240,7 @@ def serve():
     print('Starting server. Listening on port 50051.')
     server.wait_for_termination()
 
+
 if __name__ == '__main__':
+
     serve()
