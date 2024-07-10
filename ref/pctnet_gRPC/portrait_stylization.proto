@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package portraitstylization;
+
+// The image processing service definition.
+service PortraitStylization {
+  // Sends an image and receives a stylized version of it.
+  rpc StylizeImage(ImageRequest) returns (ImageReply) {}
+}
+
+// The request message containing the image.
+message ImageRequest {
+  bytes image_data = 1;  // frame bytes
+  int32 height = 2;
+  int32 width = 3;
+  int32 channel = 4;
+}
+
+// The response message containing the image.
+message ImageReply {
+  bytes image_data = 1;  // jpg bytes
+}

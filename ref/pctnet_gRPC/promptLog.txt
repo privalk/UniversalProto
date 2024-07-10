@@ -1,0 +1,28 @@
+
+import cv2
+from modelscope.outputs import OutputKeys
+from modelscope.pipelines import pipeline
+from modelscope.utils.constant import Tasks
+
+img_cartoon = pipeline(Tasks.image_portrait_stylization, 
+                       model='cv_unet_person-image-cartoon_compound-models')
+# 图像本地路径
+img_path = 'input.jpg'
+img_path = 'family.jpg'
+img = cv2.imread(img_path)
+# 图像url链接
+# img_path = 'https://modelscope.oss-cn-beijing.aliyuncs.com/test/images/image_cartoon.png'
+result = img_cartoon(img)
+cv2.imwrite('result.png', result[OutputKeys.OUTPUT_IMG])
+print('finished!')
+
+以上是模型的加载与调用的测试代码。
+现在，我要进一步编写代码，我希望让它能够被当作一个grpc服务。
+
+具体来说，我希望首先构造一个proto文件，定义一个grpc服务，叫做PortraitStylization.
+它提供一个远程函数，该函数被用于传递图片frame（jpg格式，base64编码），并返回一个相同大小的图片。
+
+它的Server，会在启动后加载img_cartoon = pipeline(Tasks.image_portrait_stylization, model='cv_unet_person-image-cartoon_compound-models')
+然后，每次被调用时，调用这一pipeline进行处理，再把处理后的frame转为相同的格式返回。
+
+然后，我还希望你帮我写一个样例client。
