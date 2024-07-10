@@ -160,33 +160,33 @@ class UnityGrpcService(UnityGeneral_pb2_grpc.UnityGrpcServiceServicer):
     
         print("run PortraitStylization")
 
-        start_time = time.time()
-        strTime = time.strftime("%Y-%m-%d %H:%M:%S")
+        # start_time = time.time()
+        # strTime = time.strftime("%Y-%m-%d %H:%M:%S")
 
-        int_values=[int(reqs.get('width', 0)),int(reqs.get('height', 0)),int(reqs.get('channel', 0))]
-        expected_size = int_values[0] * int_values[1] * int_values[2]
-        received_size = len(data)
+        # int_values=[int(reqs.get('width', 0)),int(reqs.get('height', 0)),int(reqs.get('channel', 0))]
+        # expected_size = int_values[0] * int_values[1] * int_values[2]
+        # received_size = len(data)
 
-        print(f"{strTime} - 接收到的数据长度：{received_size}")
-        print(f"{strTime} - 预期的数据长度：{expected_size}")
+        # print(f"{strTime} - 接收到的数据长度：{received_size}")
+        # print(f"{strTime} - 预期的数据长度：{expected_size}")
 
          # 解码图像
         nparr = np.frombuffer(data, dtype=np.uint8)
         
         # 判断接收到的数据是否符合预期大小
-        if received_size == expected_size:
-            print(f"{strTime} - 使用预设形状解码")
-            nparr = nparr.reshape((int_values[0], int_values[1], int_values[2]))
-        else:
-            print(f"{strTime} - 使用JPEG解码")
-            nparr = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        # if received_size == expected_size:
+        #     print(f"{strTime} - 使用预设形状解码")
+        #     nparr = nparr.reshape((int_values[0], int_values[1], int_values[2]))
+        # else:
+        print("使用JPEG解码")
+        nparr = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
          # 处理图像
         result = nparr[...,::-1]
         # 将处理后的图像编码为JPEG格式
         _, img_encoded = cv2.imencode('.jpg', result)
 
-        finish_time = time.time()
-        print(f"Total Time: {finish_time - start_time:.3f} sec\n")
+        # finish_time = time.time()
+        # print(f"Total Time: {finish_time - start_time:.3f} sec\n")
 
         rdata=img_encoded.tobytes()
 
